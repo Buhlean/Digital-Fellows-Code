@@ -14,15 +14,15 @@ class Root(tk.Tk):
         self.configure(bg = COLOUR['BG_FRAME'])
         self.geometry('600x430+40+40')
         self.resizable(True, True)
-        self.bg_frame = tk.Frame(self, bg = COLOUR['BG_FRAME'], bd = 0, relief = tk.GROOVE, padx = 20, pady = 20)
+        self.bg_frame = tk.Frame(self, bg = COLOUR['BG_FRAME'], bd = 0, padx = 20, pady = 20)
         self.bg_frame.pack(side="top", fill="both", expand=True)
-        self.app = App(self.bg_frame)
-        self.bind_all('<Return>',   self.app.validate_and_run)
+        self.subtitle_widget = Subtitle_Widget(self.bg_frame)
+        self.bind_all('<Return>',   self.subtitle_widget.validate_and_run)
         self.bind_all('<Escape>',   self.close_window)
     def close_window(self, e = None):
         self.destroy()
         
-class App(tk.Frame):
+class Subtitle_Widget(tk.Frame):
     def __init__(self, root):
         super().__init__(root, bg = COLOUR['BG_FRAME_CONTRAST'], bd = 0, relief = tk.GROOVE, )
         self.pack(side="top", fill=tk.BOTH, expand=True)
@@ -50,7 +50,7 @@ class App(tk.Frame):
 
     ## The GUI ##########################################################################################
 
-    def draw_GUI(self, e = None, *, redraw = False): # "e = None" means that I might want to call this function via an event which then wants to give its info to the function as a parameter. that's only possible if the function is ready for that. I made all functions ready for that because a whole lot changed during developement and I called almost every function via event at one point or another. you can ignore those for the most part.
+    def draw_GUI(self, e = None, *, redraw = False): # "e = None" means that I might want to call this function via an Event which then wants to give its info to the function as a parameter. that's only possible if the function is ready for that. I made all functions ready for that because a whole lot changed during developement and I called almost every function via event at one point or another. you can ignore those for the most part.
         self.padding = 6
         self.columns = 6
 
