@@ -1,6 +1,8 @@
 from youtube_transcript_api import YouTubeTranscriptApi
 import getpass
 import json
+#import pyttsx3
+import spellchecker
 import tkinter as tk
 from tkinter import filedialog
 
@@ -169,6 +171,10 @@ class App(tk.Frame):
 ######## LANGUAGE TOOLS #################################################################################
         
 class Suggestions_Widget(tk.Frame):
+    '''
+    All the Buttons and functionality for the editor
+    Usually displayed on the right when not currently donwloading subtitles
+    '''
     def __init__(self, root):
         super().__init__(root, bg = COLOUR['BG_FRAME'], bd = 0, )
         self.pack(side="top", fill=tk.BOTH, expand=True,)
@@ -183,12 +189,28 @@ class Suggestions_Widget(tk.Frame):
             self.elements['BG'].columnconfigure(0, weight=1)
             self.elements['BG'].rowconfigure(2, weight=1)
             self.elements['BG'].columnconfigure(0, weight=1)
+
+            # label save
+            # button save
+            
+            # label spellcheck
+            # menu lang
+            # button check
+            
+            # cut copy paste buttons?
+            
             if DEBUG: print('TOOL BG: drawn')
         else:
             if DEBUG: print('TOOL BG: redrawn')
         #colour
         self.configure(bg = COLOUR['BG_FRAME'],)
         self.elements['BG'].configure(bg = COLOUR['BG_FRAME'],)
+
+    #def save
+
+    #def spellcheck
+
+    #def 
     
     def kill(self, e=None):
         for widget in self.winfo_children():
@@ -197,13 +219,23 @@ class Suggestions_Widget(tk.Frame):
 ######## TEXT EDITOR ####################################################################################
             
 class Text_Widget(tk.Frame):
+    '''
+    Contains the Text widget
+    Remembers the content and spellcheck information
+    Can receive data from the Download widget
+    '''
     def __init__(self, root):
         super().__init__(root, bg = COLOUR['BG_FRAME'], bd = 0)
         self.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(4,0))
 
         self.loaded = False
         self.received = False
-        self.textfile = ''
+        self.continue_checking = False
+        # classspellchecker.SpellChecker(language=u'en', local_dictionary=None, distance=2, tokenizer=None, case_sensitive=False)
+        # language (str) – The language of the dictionary to load or None for no dictionary. Supported languages are en, es, de, fr` and pt. Defaults to en
+        self.spellchecker_loaded = {}
+        self.spellchecker = None
+        self.text = ''
         self.elements = {}
 
     def draw_GUI(self, e=None, *, redraw=False):
@@ -224,7 +256,7 @@ class Text_Widget(tk.Frame):
                 self.elements['TEXT'].grid(row=2, column=0, padx=0, sticky='NEWS')
                 self.elements['TEXT'].configure(insertbackground=COLOUR['TEXT'],
                     padx=6, pady=6, bd=2, font=FONT, relief=tk.FLAT,
-                    spacing3=1, wrap=tk.WORD, )
+                    spacing3=.1, wrap=tk.WORD, )
                 if DEBUG: print('TEXT: drawn')
             else:
                 if DEBUG: print('TEXT: redrawn')
@@ -250,26 +282,89 @@ class Text_Widget(tk.Frame):
                 
     def load_text_file(self, e=None, ):
         if DEBUG: print('FILE: attempt to load')
-        self.textfile = (filedialog.askopenfile(mode="r", defaultextension='.txt'))
-        if self.textfile is None: return
-        self.textfile = list(self.textfile)
+        file = (filedialog.askopenfilename())
+        if file is None or file == '': return
+        with open(file, 'r') as transcript:
+            self.text = list(transcript)
         if DEBUG: print('FILE: loaded')
         self.loaded = True
         self.received = False
         self.kill()
         self.draw_GUI()
         self.display_text()
+        # trying to guess the language from the filename:
+        parts = file.split('_')
+        code = ''
+        for maybe_code in parts:
+            if len(maybe_code) == 2:
+                if maybe_code in ['en', 'es', 'de', 'fr' 'pt']:
+                    code = maybe_code
+                    self.spellchecker_loaded.update({code: spellchecker.SpellChecker(code)})
+        if code is not None and code != '':
+            self.spellchecker = self.spellchecker_loaded[code]
+            self.start_spell_check('1.0', 'end')
 
     def receive_and_display_transcript(self, data):
-        self.textfile = data['CUES']
+        self.text = data['CUES']
         self.loaded = True
         self.kill()
         self.draw_GUI()
 
     def display_text(self):
         self.elements['TEXT'].delete('1.0', 'end')
-        self.elements['TEXT'].insert('1.0', '\n'.join(self.textfile))
+        self.elements['TEXT'].insert('1.0', '\n'.join(self.text))
         if DEBUG: print('TEXT: displayed')
+
+    def save_text(self, e=None):
+        file = filedialog.asksaveasfilename()
+        with open(file, 'w') as save_place:
+            for line in self.elements['TEXT'].get('1.0', 'end'):
+                save_place.write(line)
+
+    def speak(self):
+        import pyttsx3
+        engine = pyttsx3.init()
+        engine.say(self.elements['TEXT'].selection_get())
+        engine.runAndWait()
+
+###########################
+
+    def start_spell_check(self, start, end):
+        if self.spellchecker is None: return False
+        start_line = int(start.split('.')[0])
+        end_line = int(self.elements['TEXT'].index(end).split('.')[0])
+        self.to_check = [i for i in range( start_line, end_line+1 )]
+        self.continue_checking = True
+        self.master.master.after( 1000, self.spell_check_chunk ) # schedule
+
+    ## called every time it finishes while not clogging the event loop
+    def spell_check_chunk(self):
+        misspelled = self.spellchecker.unknown(self.elements['TEXT'].get().split())
+        if len(self.to_check) > 0 and self.continue_checking:
+            self.master.master.after(1000, self.spell_check_chunk) # schedule
+    
+###########################
+
+    def _spell_err(self, findString):
+        startInd = '1.0'
+        while(startInd):
+            startInd = self.elements['TEXT'].search(findString, startInd, stopindex='end')
+            if startInd:
+                startInd = str(startInd)
+                lastInd = startInd+f'+{len(findString)}c'
+                self.elements['TEXT'].tag_add('misspell', startInd, lastInd)
+                startInd = lastInd
+
+    def _spell_check(self, e=None):
+        self.elements['TEXT'].tag_delete('misspell')
+        words = self.elements['TEXT'].get('1.0', "end-1c").split()
+        d = enchant.Dict("en_US")
+        for word in words:
+            if (d.check(word) == False):
+                self._spell_err(word)
+        self.elements['TEXT'].tag_config('misspell', background="red", foreground="white")
+
+##########################
         
     def kill(self, e=None):
         for widget in self.winfo_children():
@@ -278,6 +373,12 @@ class Text_Widget(tk.Frame):
 ######## SUBTITLE DOWNLOAD ##############################################################################
             
 class Subtitle_Widget(tk.Frame):
+    '''
+    Download Subtitles from here
+    Provide a URL, an OUTPUT_PATH, some FORMAT, and a LANGUAGE,
+    then let YouTube_transcript_API do the work
+    Sends the transcript to the Text widget once done.
+    '''
     def __init__(self, root):
         super().__init__(root, bg = COLOUR['BG_FRAME_CONTRAST'], bd = 0, )
         self.pack(side="top", fill=tk.BOTH, expand=True, pady=(4,0))
@@ -787,6 +888,9 @@ def save_as_json(cues, video_id, path, language, is_translation=False):
             json.dump(cues, file)
     except Exception as e:
         if DEBUG: print('SAVE: JSON: EXCEPTION: ', e)
+
+def lerp(a, b, t):
+    return a*(1-t) + b*(t)
 
 COLOUR = {}
 COLOURS = {'DARK': {}, 'LIGHT': {}}
