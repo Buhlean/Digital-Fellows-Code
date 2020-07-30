@@ -286,7 +286,7 @@ class Tools_Widget(tk.Frame):
             return False
         self.spellchecker = spellchecker.SpellChecker(language)
         if DEBUG: print('SPELLCHECKER: created: ', self.spellchecker)
-        return
+        return True
 
     def spellcheck_all(self, lang=None):
         if not self.text.loaded: return
@@ -296,15 +296,10 @@ class Tools_Widget(tk.Frame):
         to_check = set()
         words = self.text.elements['TEXT'].get('1.0', "end-1c").split()
         if DEBUG: print('TEXT SPLIT FOR PROCESSING')
-
-        import re
-        regex = re.compile("[^a-zA-Z]")
-        if DEBUG: print('REGEX SUCCESS')
         
         for word in words:
             if 'http://' in word or 'www.' in word: continue
-            # ALT: s = ''.join(filter(str.isalnum, s))
-            to_check.add(regex.sub('', word))
+            to_check.add(''.join(filter(str.isalnum, word)))
         if DEBUG: print('Words to spellcheck: ', len(to_check))
         
         self.spellcheck_iter = iter(self.spellchecker.unknown(to_check))
@@ -348,6 +343,7 @@ class Text_Widget(tk.Frame):
         self.received = False
         self.text = ''
         self.elements = {}
+        self.tags = []
         self.marked = False
         self.tools = None
 
@@ -377,6 +373,7 @@ class Text_Widget(tk.Frame):
             #colour
             self.elements['TEXT'].configure(bg = COLOUR['ENTRY_BG'], fg = COLOUR['TEXT'],)
             self.display_text()
+            if self.marked: self.elements['TEXT'].tag_config('misspell', background=COLOUR['MISTAKE'], foreground=COLOUR['TEXT'])
         else:
             if not redraw:
                 self.elements['EXPLAIN_LOAD'] = tk.Label(self.elements['BG'])
@@ -428,6 +425,7 @@ class Text_Widget(tk.Frame):
     def display_text(self):
         self.elements['TEXT'].delete('1.0', 'end')
         self.elements['TEXT'].insert('1.0', '\n'.join(self.text))
+        if self.marked: self.retag()
         if DEBUG: print('TEXT: displayed')
 
     def save_text(self, e=None):
@@ -460,14 +458,20 @@ class Text_Widget(tk.Frame):
                 startInd = str(startInd)
                 lastInd = ''.join((startInd, '+', characters, 'c'))
                 self.elements['TEXT'].tag_add('misspell', startInd, lastInd)
+                self.tags.append((startInd, lastInd))
                 startInd = lastInd
         if not self.marked:
-            self.elements['TEXT'].tag_config('misspell', background="red", foreground="white")
+            self.elements['TEXT'].tag_config('misspell', background=COLOUR['MISTAKE'], foreground=COLOUR['TEXT'])
             self.marked = True
+
+    def retag(self):
+        for a, b in self.tags:
+            self.elements['TEXT'].tag_add('misspell', a, b)
 
     def delete_all_mistakes_tags(self):
         if not self.loaded: return False
         self.elements['TEXT'].tag_delete('misspell')
+        self.tags = []
         self.marked = False
         
     def kill(self, e=None):
@@ -1021,6 +1025,7 @@ COLOURS['DARK']['CHOICE_BG'] = '#111111'
 COLOURS['DARK']['CHOICE_FG'] = '#ffffff'
 COLOURS['DARK']['SELECT_BG'] = '#222222'
 COLOURS['DARK']['SELECT_BG_ACTIVE'] = '#333333'
+COLOURS['DARK']['MISTAKE'] = mix_colours('#111111', '#ef760b', .45)
 ## LIGHT
 COLOURS['LIGHT']['FRAME_BG'] = '#eeeeee'
 COLOURS['LIGHT']['FRAME_BG_CONTRAST'] = '#7f7f7f'
@@ -1038,6 +1043,7 @@ COLOURS['LIGHT']['CHOICE_BG'] = '#aaaaaa'
 COLOURS['LIGHT']['CHOICE_FG'] = '#000000'
 COLOURS['LIGHT']['SELECT_BG'] = '#cccccc'
 COLOURS['LIGHT']['SELECT_BG_ACTIVE'] = '#bbbbbb'
+COLOURS['LIGHT']['MISTAKE'] = mix_colours('#eeeeee', '#0097f9', .45)
 ## SELECT INITIAL
 COLOUR.update(COLOURS['DARK'])
 
