@@ -2,17 +2,18 @@ from youtube_transcript_api import YouTubeTranscriptApi
 import getpass
 import json
 #import pyttsx3
+#import re
 import spellchecker
 import tkinter as tk
 from tkinter import filedialog
 
-DEBUG = False
+DEBUG = True
 
 class Root(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(TEXT['TITLE'])
-        self.configure(bg = COLOUR['BG_FRAME'])
+        self.configure(bg = COLOUR['FRAME_BG'])
         self.geometry('1000x600+20+20')
         self.resizable(True, True)
 
@@ -24,7 +25,7 @@ class Root(tk.Tk):
 
 class App(tk.Frame):
     def __init__(self, root):
-        super().__init__(root, bg = COLOUR['BG_FRAME_CONTRAST'], bd = 0)
+        super().__init__(root, bg = COLOUR['FRAME_BG_CONTRAST'], bd = 0)
         self.pack(fill=tk.BOTH, expand=True)
 
         self.padding            = 6 #px
@@ -43,32 +44,31 @@ class App(tk.Frame):
 
     def draw_GUI(self, e=None, *, redraw=False):
         if not redraw:
-            self.elements['CONTENT']= tk.Frame(self, bg = COLOUR['BG_FRAME'], bd = 0, padx=8, pady=8)
+            self.elements['CONTENT']= tk.Frame(self, bg = COLOUR['FRAME_BG'], bd = 0, padx=8, pady=8)
             self.elements['CONTENT'].pack(side=tk.TOP, fill=tk.BOTH, expand=True)
             self.elements['CONTENT'].rowconfigure(0, minsize=10)
-            self.elements['CONTENT'].rowconfigure(1, minsize=400, weight=1)
-            for i in range(3): self.elements['CONTENT'].columnconfigure(i, weight=8, minsize=200, )
-            for i in range(3, 5): self.elements['CONTENT'].columnconfigure(i, weight=3, minsize=75, )
-            for i in range(5, 7): self.elements['CONTENT'].columnconfigure(i, weight=1, minsize=25, )
+            self.elements['CONTENT'].rowconfigure(1, minsize=300, weight=1)
+            for i in range(24): self.elements['CONTENT'].columnconfigure(i, minsize=32)
+            self.elements['CONTENT'].columnconfigure(20, weight=1, minsize=20)
 
-            self.elements['FETCH']  = tk.Frame(self.elements['CONTENT'], bg = COLOUR['BG_FRAME'], bd = 0, padx=8, )
-            self.elements['TEXT']   = tk.Frame(self.elements['CONTENT'], bg = COLOUR['BG_FRAME'], bd = 0, padx=8, )
-            self.elements['TOOL']   = tk.Frame(self.elements['CONTENT'], bg = COLOUR['BG_FRAME'], bd = 0, padx=8, )
+            self.elements['FETCH']  = tk.Frame(self.elements['CONTENT'], bg = COLOUR['FRAME_BG'], bd = 0, padx=8, )
+            self.elements['TEXT']   = tk.Frame(self.elements['CONTENT'], bg = COLOUR['FRAME_BG'], bd = 0, padx=8, )
+            self.elements['TOOL']   = tk.Frame(self.elements['CONTENT'], bg = COLOUR['FRAME_BG'], bd = 0, padx=8, )
 
             self.content['FETCH']   = Subtitle_Widget(self.elements['FETCH'])
             self.content['TEXT']    = Text_Widget(self.elements['TEXT'])
-            self.content['TOOL']    = Suggestions_Widget(self.elements['TOOL'])
+            self.content['TOOL']    = Tools_Widget(self.elements['TOOL'])
 
             if DEBUG: print('ALL: drawn')
         else:
             if DEBUG: print('ALL: redrawn')
         #colour
-        self.configure(bg=COLOUR['BG_FRAME_CONTRAST'],)
-        self.master.configure(bg = COLOUR['BG_FRAME_CONTRAST'],)
-        self.elements['CONTENT'].configure(bg = COLOUR['BG_FRAME_CONTRAST'],)
-        self.elements['FETCH'].configure(bg = COLOUR['BG_FRAME'],)
-        self.elements['TEXT'].configure(bg = COLOUR['BG_FRAME'],)
-        self.elements['TOOL'].configure(bg = COLOUR['BG_FRAME'],)
+        self.configure(bg=COLOUR['FRAME_BG_CONTRAST'],)
+        self.master.configure(bg = COLOUR['FRAME_BG_CONTRAST'],)
+        self.elements['CONTENT'].configure(bg = COLOUR['FRAME_BG_CONTRAST'],)
+        self.elements['FETCH'].configure(bg = COLOUR['FRAME_BG'],)
+        self.elements['TEXT'].configure(bg = COLOUR['FRAME_BG'],)
+        self.elements['TOOL'].configure(bg = COLOUR['FRAME_BG'],)
 
         self.draw_tabs(redraw=redraw)
         self.draw_content(redraw=redraw)
@@ -77,59 +77,68 @@ class App(tk.Frame):
         target_colour = 'LIGHT' if 'DARK' in self.colour.get() else 'DARK'
         target_language = 'DE' if 'EN' in self.language.get() else 'EN'
         if not redraw:
-            self.elements['DL_TEXT'] = tk.Button(self.elements['CONTENT'])
-            self.elements['DL_TEXT'].configure(relief=tk.FLAT, command=(lambda:self.tab_clicked(which=0)))
-            self.elements['DL_TEXT'].grid(row=0, column=0, sticky='NEWS', padx=(8,0))
+            self.elements['TAB_DL'] = tk.Button(self.elements['CONTENT'])
+            self.elements['TAB_DL'].configure(relief=tk.FLAT, command=(lambda:self.tab_clicked(which=0)))
+            self.elements['TAB_DL'].grid(row=0, column=0, columnspan=5, sticky='NEWS', padx=(8,0))
             
-            self.elements['PAD_LEFT'] = tk.Label(self.elements['CONTENT'])
-            self.elements['PAD_LEFT'].grid(row=0, column=1, sticky='NEWS')
-            
-            self.elements['EDIT_TEXT'] = tk.Button(self.elements['CONTENT'])
-            self.elements['EDIT_TEXT'].configure(relief=tk.FLAT, command=(lambda:self.tab_clicked(which=1)))
-            self.elements['EDIT_TEXT'].grid(row=0, column=2, sticky='NEWS', padx=(8,0))
-
-            self.elements['COLOUR_BLOB'] = tk.Radiobutton(self.elements['CONTENT'])
-            self.elements['COLOUR_BLOB'].configure( indicatoron = False, width = 2, borderwidth = 1,
-                command = self.change_colour_scheme, highlightthickness = 0, padx = 0, pady = 0,
-                offrelief = tk.FLAT, relief = tk.FLAT, variable = self.colour,)
-            self.elements['COLOUR_BLOB'].grid(row = 0, column = 6, sticky='NES', pady=(0, 8))
+            self.elements['TAB_TOOLS'] = tk.Button(self.elements['CONTENT'])
+            self.elements['TAB_TOOLS'].configure(relief=tk.FLAT, command=(lambda:self.tab_clicked(which=1)))
+            self.elements['TAB_TOOLS'].grid(row=0, column=6, columnspan=5, sticky='NEWS', padx=(8,0))
 
             self.elements['LANGUAGE_BLOB'] = tk.Radiobutton(self.elements['CONTENT'])
             self.elements['LANGUAGE_BLOB'].configure( indicatoron = False, width = 2, borderwidth = 1,
                 command = self.change_language, highlightthickness = 0, padx = 0, pady = 0,
                 offrelief = tk.FLAT, relief = tk.FLAT, variable = self.language, )
-            self.elements['LANGUAGE_BLOB'].grid(row = 0, column = 5, sticky='NES', pady=(0, 8))
+            self.elements['LANGUAGE_BLOB'].grid(row = 0, column = 22, sticky='NES', pady=(0, 8))
+            
+            self.elements['COLOUR_BLOB'] = tk.Radiobutton(self.elements['CONTENT'])
+            self.elements['COLOUR_BLOB'].configure( indicatoron = False, width = 2, borderwidth = 1,
+                command = self.change_colour_scheme, highlightthickness = 0, padx = 0, pady = 0,
+                offrelief = tk.FLAT, relief = tk.FLAT, variable = self.colour,)
+            self.elements['COLOUR_BLOB'].grid(row = 0, column = 23, sticky='NES', pady=(0, 8))
+
             if DEBUG: print('TABS: drawn')
         else:
             if DEBUG: print('TABS: redrawn')
         #colour
-        self.elements['COLOUR_BLOB'].configure(activebackground = COLOURS[target_colour]['BG_FRAME'], value = target_colour,
-                background = COLOURS[target_colour]['BG_FRAME'], highlightbackground = COLOURS[target_colour]['BG_FRAME'],
-                highlightcolor = COLOURS[target_colour]['BG_FRAME'], selectcolor = COLOURS[target_colour]['BG_FRAME'],)
-        self.elements['LANGUAGE_BLOB'].configure(activebackground = COLOUR['BG_FRAME'], value = target_language,
-                background = COLOUR['BG_FRAME'], highlightbackground = COLOUR['BG_FRAME'], fg=COLOUR['TEXT'], text=target_language,
-                highlightcolor = COLOUR['BG_FRAME'], selectcolor = COLOUR['BG_FRAME'], activeforeground=COLOUR['TEXT'])
-        self.elements['DL_TEXT'].configure(bg = COLOUR['BG_FRAME'], activebackground = COLOUR['BG_FRAME'],)
-        self.elements['PAD_LEFT'].configure(bg=COLOUR['BG_FRAME_CONTRAST'])
-        self.elements['EDIT_TEXT'].configure(bg = COLOUR['BG_FRAME'], activebackground = COLOUR['BG_FRAME'],)
+        self.elements['COLOUR_BLOB'].configure(activebackground = COLOURS[target_colour]['FRAME_BG'], value = target_colour,
+                background = COLOURS[target_colour]['FRAME_BG'], highlightbackground = COLOURS[target_colour]['FRAME_BG'],
+                highlightcolor = COLOURS[target_colour]['FRAME_BG'], selectcolor = COLOURS[target_colour]['FRAME_BG'],)
+        self.elements['LANGUAGE_BLOB'].configure(activebackground = COLOUR['FRAME_BG'], value = target_language,
+                background = COLOUR['FRAME_BG'], highlightbackground = COLOUR['FRAME_BG'], fg=COLOUR['TEXT'], text=target_language,
+                highlightcolor = COLOUR['FRAME_BG'], selectcolor = COLOUR['FRAME_BG'], activeforeground=COLOUR['TEXT'])
+        self.elements['TAB_DL'].configure(bg = COLOUR['FRAME_BG'], activebackground = COLOUR['FRAME_BG'],)
+        self.elements['TAB_TOOLS'].configure(bg = COLOUR['FRAME_BG'], activebackground = COLOUR['FRAME_BG'],)
 
     def draw_content(self, e=None, *, redraw=False):
         if self.state.get() == 0:
             self.elements['TOOL'].lower()
             self.elements['FETCH'].lift()
-            self.elements['FETCH'].grid(row=1, column=0, columnspan=2, sticky='NEWS', padx=(0,2))
-            self.content['FETCH'].draw_GUI(redraw=redraw)
-            self.elements['TEXT'].grid(row=1, column=2, columnspan=5, sticky='NEWS', padx=(0,0))
-            self.content['TEXT'].draw_GUI(redraw=redraw)
-            if DEBUG: print('LEFT HALF: drawn')
+            
+            self.elements['FETCH'].grid(row = 1, column = 0, columnspan = 12, sticky = 'NEWS', padx = (0,2))
+            self.content['FETCH'].draw_GUI(redraw = redraw)
+            
+            self.elements['TEXT'].grid(row = 1, column = 12, columnspan = 12, sticky = 'NEWS', padx = (0,0))
+            self.content['TEXT'].draw_GUI(redraw = redraw)
+
+            self.elements['TAB_DL'].configure(bg = COLOUR['FRAME_BG'], activebackground = COLOUR['FRAME_BG'],)
+            self.elements['TAB_TOOLS'].configure(bg = COLOUR['TAB_OFF'], activebackground = COLOUR['FRAME_BG'],)
+        
+            if DEBUG: print('TAB 0: drawn')
         else:
             self.elements['FETCH'].lower()
             self.elements['TOOL'].lift()
-            self.elements['TEXT'].grid(row=1, column=0, columnspan=2, sticky='NEWS', padx=(0,2))
-            self.content['TEXT'].draw_GUI(redraw=redraw)
-            self.elements['TOOL'].grid(row=1, column=2, columnspan=5, sticky='NEWS', padx=(0,0))
-            self.content['TOOL'].draw_GUI(redraw=redraw)
-            if DEBUG: print('RIGHT HALF: drawn')
+
+            self.elements['TOOL'].grid(row = 1, column = 0, columnspan = 8, sticky = 'NEWS', padx = (0,2))
+            self.content['TOOL'].draw_GUI(redraw = redraw)
+
+            self.elements['TEXT'].grid(row = 1, column = 8, columnspan = 16, sticky = 'NEWS', padx = (0,0))
+            self.content['TEXT'].draw_GUI(redraw = redraw)
+
+            self.elements['TAB_DL'].configure(bg = COLOUR['TAB_OFF'], activebackground = COLOUR['FRAME_BG'],)
+            self.elements['TAB_TOOLS'].configure(bg = COLOUR['FRAME_BG'], activebackground = COLOUR['FRAME_BG'],)
+
+            if DEBUG: print('TAB 1: drawn')
             
     def tab_clicked(self, e=None, *, which=0):
         if which == 0 and self.state.get() != 0:
@@ -168,49 +177,156 @@ class App(tk.Frame):
     def save_text(self, e=None):
         self.content['TEXT'].save_text(e=e)
 
-######## LANGUAGE TOOLS #################################################################################
+######## TOOLS ##########################################################################################
         
-class Suggestions_Widget(tk.Frame):
+class Tools_Widget(tk.Frame):
+
     '''
     All the Buttons and functionality for the editor
     Usually displayed on the right when not currently donwloading subtitles
     '''
+    
     def __init__(self, root):
-        super().__init__(root, bg = COLOUR['BG_FRAME'], bd = 0, )
+        super().__init__(root, bg = COLOUR['FRAME_BG'], bd = 0, )
         self.pack(side="top", fill=tk.BOTH, expand=True,)
 
         self.fetched_and_ready = False
+        self.speech_defunct = False # preliminarily
+        
         self.elements = {}
+        
+        self.possible_languages = [('en', 'en - English'), ('es', 'es - Espanol'), ('de', 'de - Deutsch'), ('fr', 'fr - Francois'), ('pt', 'pt - Portugues')]
+        self.clicked_language = tk.StringVar(self, TEXT['TOOL_DEFAULT_DICT'])
+        self.spellchecker = None
+        self.spellcheck_iter = []
 
+        self.text = self.master.master.master.content['TEXT'] 
+        
     def draw_GUI(self, e=None, *, redraw=False):
         if not redraw:
             self.elements['BG'] = tk.Frame(self)
-            self.elements['BG'].pack(side = tk.TOP, fill = tk.BOTH, expand=True, padx=0 )
+            self.elements['BG'].pack(fill = tk.BOTH, expand=True, padx=0, pady=0 )
             self.elements['BG'].columnconfigure(0, weight=1)
-            self.elements['BG'].rowconfigure(2, weight=1)
-            self.elements['BG'].columnconfigure(0, weight=1)
+            self.elements['BG'].rowconfigure(12, weight=1)
 
-            # label save
-            # button save
+            self.elements['SAVE_LABEL']=tk.Label(self.elements['BG'])
+            self.elements['SAVE_LABEL'].configure(anchor='nw', font=FONT, bd=0, justify=tk.LEFT, )
+            self.elements['SAVE_LABEL'].grid(column=0, row=0, sticky='NEWS', pady=(8,0))
             
-            # label spellcheck
-            # menu lang
-            # button check
+            self.elements['SAVE_BUTTON']=tk.Button(self.elements['BG'])
+            self.elements['SAVE_BUTTON'].configure( bd=1, justify=tk.LEFT, command=self.save_text_in_file, font=FONT, relief=tk.RAISED, pady=0, )
+            self.elements['SAVE_BUTTON'].grid(column=0, row=1, sticky='NEWS', pady=4)
+
+            self.elements['SPELLCHECK']=tk.Label(self.elements['BG'])
+            self.elements['SPELLCHECK'].configure(anchor='nw', font=FONT, bd=0, justify=tk.LEFT, )
+            self.elements['SPELLCHECK'].grid(column=0, row=2, sticky='NEWS', pady=(8,0))
+
+            self.elements['DICT_LANG']=tk.Menubutton(self.elements['BG'])
+            self.elements['DICT_LANG'].configure(bd=1, justify=tk.LEFT, anchor='w', font=FONT, padx=6, pady=0, relief=tk.RAISED, textvariable=self.clicked_language)
+            self.elements['DICT_LANG'].grid(column=0, row=3, sticky='EW', padx=(0,8), ipady=4, pady=4) 
+            self.elements['DICT_LANG'].menu=tk.Menu(self.elements['DICT_LANG'])
+            self.elements['DICT_LANG'].menu.configure(tearoff=0, bd=0, font=FONT)
+            self.elements['DICT_LANG']['menu']=self.elements['DICT_LANG'].menu
+            for code, text in self.possible_languages:
+                self.elements['DICT_LANG'].menu.add_radiobutton(value=code, label=text, variable=self.clicked_language, )#command=self.change_dict_lang)
+
+            self.elements['CHECK_BUTTON']=tk.Button(self.elements['BG'])
+            self.elements['CHECK_BUTTON'].configure( bd=1, justify=tk.LEFT, command=self.spellcheck_all, font=FONT, relief=tk.RAISED, pady=0, )
+            self.elements['CHECK_BUTTON'].grid(column=0, row=4, sticky='NEWS', pady=4)
+
+            self.elements['SPEECH_LABEL']=tk.Label(self.elements['BG'])
+            self.elements['SPEECH_LABEL'].configure(anchor='nw', font=FONT, bd=0, justify=tk.LEFT, )
+            self.elements['SPEECH_LABEL'].grid(column=0, row=5, sticky='NEWS', pady=(8,0))
             
+            self.elements['SPEECH_BUTTON']=tk.Button(self.elements['BG'])
+            self.elements['SPEECH_BUTTON'].configure( bd=1, justify=tk.LEFT, command=self.speak, font=FONT, relief=tk.RAISED, pady=0, )
+            self.elements['SPEECH_BUTTON'].grid(column=0, row=6, sticky='NEWS', pady=4)
+
             # cut copy paste buttons?
             
             if DEBUG: print('TOOL BG: drawn')
         else:
             if DEBUG: print('TOOL BG: redrawn')
         #colour
-        self.configure(bg = COLOUR['BG_FRAME'],)
-        self.elements['BG'].configure(bg = COLOUR['BG_FRAME'],)
+        self.configure(bg = COLOUR['FRAME_BG'],)
+        self.elements['BG'].configure(bg = COLOUR['FRAME_BG'],)
+        self.elements['SAVE_LABEL'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'], text = TEXT['TOOL_SAVE'])
+        self.elements['SAVE_BUTTON'].configure(fg = COLOUR['TEXT_BUTTON'], bg = COLOUR['BUTTON_NORMAL'], text = TEXT['TOOL_SAVE_B'],
+            activeforeground = COLOUR['ACTIVE'], activebackground = COLOUR['BUTTON_CLICKED'], highlightcolor = COLOUR['ACTIVE'],)
+        self.elements['SPELLCHECK'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'], text = TEXT['TOOL_SPELL'])
+        self.elements['DICT_LANG'].configure(fg = COLOUR['TEXT'], activeforeground = COLOUR['TEXT'],
+            bg = COLOUR['SELECT_BG'], activebackground = COLOUR['SELECT_BG_ACTIVE'], text = TEXT['TOOL_DEFAULT_DICT'],)
+        self.elements['DICT_LANG'].menu.configure(activeforeground = COLOUR['CHOICE_FG_ACTIVE'],fg = COLOUR['CHOICE_FG'],
+            activebackground = COLOUR['CHOICE_BG_ACTIVE'], bg = COLOUR['CHOICE_BG'],)
+        self.elements['CHECK_BUTTON'].configure(fg = COLOUR['TEXT_BUTTON'], bg = COLOUR['BUTTON_NORMAL'], text = TEXT['TOOL_SPELL_B'],
+            activeforeground = COLOUR['ACTIVE'], activebackground = COLOUR['BUTTON_CLICKED'], highlightcolor = COLOUR['ACTIVE'],)
+        self.elements['SPEECH_LABEL'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'], text = TEXT['TOOL_SPEECH'] if not self.speech_defunct else TEXT['SPEECH_UNAVAILABLE'])
+        self.elements['SPEECH_BUTTON'].configure(fg = COLOUR['TEXT_BUTTON'], bg = COLOUR['BUTTON_NORMAL'], text = TEXT['TOOL_SPEECH_B'],
+            activeforeground = COLOUR['ACTIVE'], activebackground = COLOUR['BUTTON_CLICKED'], highlightcolor = COLOUR['ACTIVE'],)
+        
+    def speak(self):
+        if not self.text.speak():
+            self.speech_defunct = True
+            self.elements['SPEECH_LABEL'].configure(text=TEXT['SPEECH_UNAVAILABLE'])
+            self.elements['SPEECH_BUTTON'].configure(state=tk.DISABLED)
+    
+    def save_text_in_file(self):
+        self.text.save_text()
+        return
 
-    #def save
+    def spellcheck_create(self, lang=None):
+        if lang is None:
+            language = self.clicked_language.get()
+            if DEBUG: print('LANGUAGE CHOSEN BY USER')
+        else:
+            language = lang
+            if DEBUG: print('LANGUAGE FOUND IN FILENAME')
+        if len(language) != 2:
+            if DEBUG: print('ABORT SPELLCHECK')
+            return False
+        self.spellchecker = spellchecker.SpellChecker(language)
+        if DEBUG: print('SPELLCHECKER: created: ', self.spellchecker)
+        return
 
-    #def spellcheck
+    def spellcheck_all(self, lang=None):
+        if not self.text.loaded: return
+        if not self.spellcheck_create(lang=lang): return
+        self.text.delete_all_mistakes_tags()
 
-    #def 
+        to_check = set()
+        words = self.text.elements['TEXT'].get('1.0', "end-1c").split()
+        if DEBUG: print('TEXT SPLIT FOR PROCESSING')
+
+        import re
+        regex = re.compile("[^a-zA-Z]")
+        if DEBUG: print('REGEX SUCCESS')
+        
+        for word in words:
+            if 'http://' in word or 'www.' in word: continue
+            # ALT: s = ''.join(filter(str.isalnum, s))
+            to_check.add(regex.sub('', word))
+        if DEBUG: print('Words to spellcheck: ', len(to_check))
+        
+        self.spellcheck_iter = iter(self.spellchecker.unknown(to_check))
+        self.master.master.after(0, self.advance_spellchecking) # schedule
+        if DEBUG: print('SPELLCHECKING SCHEDULED')
+        
+    def spellcheck_part(self, a, b):
+        if self.spellchecker is None: self.spellcheck_create()
+        if not self.text.loaded: return
+        self.spellcheck_iter = iter(self.spellchecker.unknown(self.text.elements['TEXT'].get(a, b).split()))
+        self.master.master.after(0, self.advance_spellchecking) # schedule
+        if DEBUG: print('SPELLCHECKING SCHEDULED')
+
+    def advance_spellchecking(self):
+        try:
+            word = next(self.spellcheck_iter)
+        except StopIteration:
+            if DEBUG: print('SPELLCHECKING: stopped.')
+            return
+        if len(word) > 3:
+            self.text.search_and_flag(word)
+        self.master.master.after(0, self.advance_spellchecking) # schedule
     
     def kill(self, e=None):
         for widget in self.winfo_children():
@@ -225,21 +341,20 @@ class Text_Widget(tk.Frame):
     Can receive data from the Download widget
     '''
     def __init__(self, root):
-        super().__init__(root, bg = COLOUR['BG_FRAME'], bd = 0)
+        super().__init__(root, bg = COLOUR['FRAME_BG'], bd = 0)
         self.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(4,0))
 
         self.loaded = False
         self.received = False
-        self.continue_checking = False
-        # classspellchecker.SpellChecker(language=u'en', local_dictionary=None, distance=2, tokenizer=None, case_sensitive=False)
-        # language (str) – The language of the dictionary to load or None for no dictionary. Supported languages are en, es, de, fr` and pt. Defaults to en
-        self.spellchecker_loaded = {}
-        self.spellchecker = None
         self.text = ''
         self.elements = {}
+        self.marked = False
+        self.tools = None
 
     def draw_GUI(self, e=None, *, redraw=False):
         if not redraw:
+            self.tools = self.master.master.master.content['TOOL']
+            
             self.elements['BG'] = tk.Frame(self)
             self.elements['BG'].pack(side = tk.TOP, fill = tk.BOTH, expand=True, padx=0 )
             for i in range(3): self.elements['BG'].columnconfigure(i, weight=1)
@@ -248,20 +363,19 @@ class Text_Widget(tk.Frame):
         else:
             if DEBUG: print('TEXT BG: redrawn')
         #colour
-        self.configure(bg = COLOUR['BG_FRAME'],)
-        self.elements['BG'].configure(bg = COLOUR['BG_FRAME'],)
+        self.configure(bg = COLOUR['FRAME_BG'],)
+        self.elements['BG'].configure(bg = COLOUR['FRAME_BG'],)
         if self.loaded:
             if not redraw:
                 self.elements['TEXT'] = tk.Text(self.elements['BG'])
-                self.elements['TEXT'].grid(row=2, column=0, padx=0, sticky='NEWS')
-                self.elements['TEXT'].configure(insertbackground=COLOUR['TEXT'],
-                    padx=6, pady=6, bd=2, font=FONT, relief=tk.FLAT,
-                    spacing3=.1, wrap=tk.WORD, )
+                self.elements['TEXT'].grid(row=2, column=0, columnspan=3, padx=0, sticky='NEWS')
+                self.elements['TEXT'].configure(insertbackground=COLOUR['TEXT'], padx=6, pady=6, bd=2,
+                                                font=FONT, relief=tk.FLAT, spacing3=.1, wrap=tk.WORD )
                 if DEBUG: print('TEXT: drawn')
             else:
                 if DEBUG: print('TEXT: redrawn')
             #colour
-            self.elements['TEXT'].configure(bg = COLOUR['BACKGROUND_ENTRY'], fg = COLOUR['TEXT'],)
+            self.elements['TEXT'].configure(bg = COLOUR['ENTRY_BG'], fg = COLOUR['TEXT'],)
             self.display_text()
         else:
             if not redraw:
@@ -270,13 +384,13 @@ class Text_Widget(tk.Frame):
                 self.elements['EXPLAIN_LOAD'].grid(columnspan = 3, sticky = 'NEWS', pady = 6, padx=0)
                 self.elements['LOAD_BUTTON'] = tk.Button(self.elements['BG'])
                 self.elements['LOAD_BUTTON'].configure( bd = 1, command = self.load_text_file, font = FONT,
-                    pady = 0,  relief = tk.RAISED, width = 12)
-                self.elements['LOAD_BUTTON'].grid(column = 0, row = 1, sticky = 'EW', padx = 0, pady=2)
+                    pady = 0, relief = tk.RAISED, width = 16, justify = tk.LEFT, )
+                self.elements['LOAD_BUTTON'].grid(column = 0, row = 1, sticky = 'W', padx = 0, pady=2)
                 if DEBUG: print('TEXT BUTTON: drawn')
             else:
                 if DEBUG: print('TEXT BUTTON: redrawn')
             #colour
-            self.elements['EXPLAIN_LOAD'].configure(bg = COLOUR['BG_FRAME'], fg = COLOUR['TEXT_LABEL'], text = TEXT['EXPLAIN'])
+            self.elements['EXPLAIN_LOAD'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'], text = TEXT['EXPLAIN'])
             self.elements['LOAD_BUTTON'].configure(fg = COLOUR['TEXT_BUTTON'], bg = COLOUR['BUTTON_NORMAL'], text = TEXT['B_LOAD_FILE'],
                 activeforeground = COLOUR['ACTIVE'], activebackground = COLOUR['BUTTON_CLICKED'], highlightcolor = COLOUR['ACTIVE'],)
                 
@@ -299,11 +413,12 @@ class Text_Widget(tk.Frame):
             if len(maybe_code) == 2:
                 if maybe_code in ['en', 'es', 'de', 'fr' 'pt']:
                     code = maybe_code
-                    self.spellchecker_loaded.update({code: spellchecker.SpellChecker(code)})
+                    self.spellchecker = spellchecker.SpellChecker(language=code)
         if code is not None and code != '':
-            self.spellchecker = self.spellchecker_loaded[code]
-            self.start_spell_check('1.0', 'end')
-
+            self.language = code
+            self.tools.spellcheck_all(lang = self.language)
+        self.master.master.master.after(0, self.master.master.master.elements['TAB_TOOLS'].invoke)
+                                        
     def receive_and_display_transcript(self, data):
         self.text = data['CUES']
         self.loaded = True
@@ -316,55 +431,44 @@ class Text_Widget(tk.Frame):
         if DEBUG: print('TEXT: displayed')
 
     def save_text(self, e=None):
+        if not self.loaded: return
         file = filedialog.asksaveasfilename()
+        if file is None: return
         with open(file, 'w') as save_place:
             for line in self.elements['TEXT'].get('1.0', 'end'):
                 save_place.write(line)
 
     def speak(self):
-        import pyttsx3
-        engine = pyttsx3.init()
-        engine.say(self.elements['TEXT'].selection_get())
-        engine.runAndWait()
-
-###########################
-
-    def start_spell_check(self, start, end):
-        if self.spellchecker is None: return False
-        start_line = int(start.split('.')[0])
-        end_line = int(self.elements['TEXT'].index(end).split('.')[0])
-        self.to_check = [i for i in range( start_line, end_line+1 )]
-        self.continue_checking = True
-        self.master.master.after( 1000, self.spell_check_chunk ) # schedule
-
-    ## called every time it finishes while not clogging the event loop
-    def spell_check_chunk(self):
-        misspelled = self.spellchecker.unknown(self.elements['TEXT'].get().split())
-        if len(self.to_check) > 0 and self.continue_checking:
-            self.master.master.after(1000, self.spell_check_chunk) # schedule
+        if not self.loaded: return True
+        try:
+            import pyttsx3
+            engine = pyttsx3.init()
+            engine.say(self.elements['TEXT'].selection_get())
+            engine.runAndWait()
+            return True
+        except:
+            return False
+        return False
     
-###########################
-
-    def _spell_err(self, findString):
+    def search_and_flag(self, word):
+        if not self.loaded: return False
+        characters = str(len(word))
         startInd = '1.0'
         while(startInd):
-            startInd = self.elements['TEXT'].search(findString, startInd, stopindex='end')
+            startInd = self.elements['TEXT'].search(word, startInd, stopindex='end')
             if startInd:
                 startInd = str(startInd)
-                lastInd = startInd+f'+{len(findString)}c'
+                lastInd = ''.join((startInd, '+', characters, 'c'))
                 self.elements['TEXT'].tag_add('misspell', startInd, lastInd)
                 startInd = lastInd
+        if not self.marked:
+            self.elements['TEXT'].tag_config('misspell', background="red", foreground="white")
+            self.marked = True
 
-    def _spell_check(self, e=None):
+    def delete_all_mistakes_tags(self):
+        if not self.loaded: return False
         self.elements['TEXT'].tag_delete('misspell')
-        words = self.elements['TEXT'].get('1.0', "end-1c").split()
-        d = enchant.Dict("en_US")
-        for word in words:
-            if (d.check(word) == False):
-                self._spell_err(word)
-        self.elements['TEXT'].tag_config('misspell', background="red", foreground="white")
-
-##########################
+        self.marked = False
         
     def kill(self, e=None):
         for widget in self.winfo_children():
@@ -380,7 +484,7 @@ class Subtitle_Widget(tk.Frame):
     Sends the transcript to the Text widget once done.
     '''
     def __init__(self, root):
-        super().__init__(root, bg = COLOUR['BG_FRAME_CONTRAST'], bd = 0, )
+        super().__init__(root, bg = COLOUR['FRAME_BG_CONTRAST'], bd = 0, )
         self.pack(side="top", fill=tk.BOTH, expand=True, pady=(4,0))
         
         self.elements           = {}
@@ -406,7 +510,7 @@ class Subtitle_Widget(tk.Frame):
 
     def draw_GUI(self, e=None, *, redraw = False): # "e=None" means that I might want to call this function via an Event which then wants to give its info to the function as a parameter. that's only possible if the function is ready for that. I made all functions ready for that because a whole lot changed during developement and I called almost every function via event at one point or another. you can ignore those for the most part.
         if redraw:
-            self.configure(bg = COLOUR['BG_FRAME_CONTRAST'],)
+            self.configure(bg = COLOUR['FRAME_BG_CONTRAST'],)
         self.draw_url_field(redraw = redraw)
         self.draw_output(redraw = redraw)
         self.draw_format(redraw = redraw)
@@ -433,15 +537,15 @@ class Subtitle_Widget(tk.Frame):
         else:
             if DEBUG: print('SUBTITLES URL: redrawn')
         # whether or not redraw:
-        self.elements['URL'].configure(bg = COLOUR['BG_FRAME'])
-        self.elements['URL_FIELD'].configure(bg = COLOUR['BACKGROUND_ENTRY'], fg = COLOUR['TEXT'],)
-        self.elements['URL_PAD1'].configure(bg = COLOUR['BG_FRAME'])
-        self.elements['URL_LABEL'].configure(bg = COLOUR['BG_FRAME'], fg = COLOUR['TEXT_LABEL'], text = TEXT['URL_INPUT'],)
+        self.elements['URL'].configure(bg = COLOUR['FRAME_BG'])
+        self.elements['URL_FIELD'].configure(bg = COLOUR['ENTRY_BG'], fg = COLOUR['TEXT'],)
+        self.elements['URL_PAD1'].configure(bg = COLOUR['FRAME_BG'])
+        self.elements['URL_LABEL'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'], text = TEXT['URL_INPUT'],)
         
     def draw_output(self, e=None, *, redraw = False):
         if not redraw:
             self.elements['OUTPUT'] = tk.Frame(self)
-            self.elements['OUTPUT'].configure(pady = self.padding, bg = COLOUR['BG_FRAME'],)
+            self.elements['OUTPUT'].configure(pady = self.padding, bg = COLOUR['FRAME_BG'],)
             self.elements['OUTPUT'].columnconfigure(1, weight = 1)
             self.elements['OUTPUT'].pack(side = tk.TOP, fill = tk.X, pady = (0,0), padx = 0)
             self.elements['OUTPUT_LABEL'] = tk.Label(self.elements['OUTPUT'])
@@ -452,16 +556,16 @@ class Subtitle_Widget(tk.Frame):
             self.elements['OUTPUT_FIELD'].grid(column = 1, row = 1, sticky = 'NEWS', padx = (0,8))
             self.elements['OUTPUT_BUTTON'] = tk.Button(self.elements['OUTPUT'])
             self.elements['OUTPUT_BUTTON'].configure( bd = 1, command = self.getsaveplace, font = FONT,
-                padx = 0, pady = 0,  relief = tk.RAISED, width = 9)
+                padx = 0, pady = 0, relief = tk.RAISED, width = 9)
             self.elements['OUTPUT_BUTTON'].grid(column = 3, row = 1, sticky = 'EW')
             if DEBUG: print('SUBTITLES OUTPUT: drawn')
         else:
             if DEBUG: print('SUBTITLES OUTPUT: redrawn')
-        self.elements['OUTPUT'].configure(bg = COLOUR['BG_FRAME'],)
-        self.elements['OUTPUT_FIELD'].configure(bg = COLOUR['BACKGROUND_ENTRY'], fg = COLOUR['TEXT'],)
+        self.elements['OUTPUT'].configure(bg = COLOUR['FRAME_BG'],)
+        self.elements['OUTPUT_FIELD'].configure(bg = COLOUR['ENTRY_BG'], fg = COLOUR['TEXT'],)
         self.elements['OUTPUT_BUTTON'].configure(fg = COLOUR['TEXT_BUTTON'], bg = COLOUR['BUTTON_NORMAL'], text = TEXT['CHOOSE'],
             activeforeground = COLOUR['ACTIVE'], activebackground = COLOUR['BUTTON_CLICKED'], highlightcolor = COLOUR['ACTIVE'],)
-        self.elements['OUTPUT_LABEL'].configure(bg = COLOUR['BG_FRAME'], fg = COLOUR['TEXT_LABEL'], text = TEXT['OUTPUT'],)
+        self.elements['OUTPUT_LABEL'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'], text = TEXT['OUTPUT'],)
 
     def draw_format(self, e=None, *, redraw = False):
         if not redraw:
@@ -488,16 +592,16 @@ class Subtitle_Widget(tk.Frame):
             if DEBUG: print('SUBTITLES FORMAT: drawn')
         else:
             if DEBUG: print('SUBTITLES FORMAT: redrawn')
-        self.elements['FORMAT'].configure(bg = COLOUR['BG_FRAME'],)
-        self.elements['FORMAT_LABEL'].configure(bg = COLOUR['BG_FRAME'], fg = COLOUR['TEXT_LABEL'], text = TEXT['FORMAT'],)
-        self.elements['FORMAT_BOX_TEXT'].configure(bg = COLOUR['BG_FRAME'], fg = COLOUR['TEXT_LABEL'], command=self.format_changed, width = 4, 
-            selectcolor = COLOUR['BG_FRAME'], activebackground = COLOUR['BG_FRAME'], text = TEXT['FORMATS'][0],
+        self.elements['FORMAT'].configure(bg = COLOUR['FRAME_BG'],)
+        self.elements['FORMAT_LABEL'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'], text = TEXT['FORMAT'],)
+        self.elements['FORMAT_BOX_TEXT'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'], command=self.format_changed, width = 4, 
+            selectcolor = COLOUR['FRAME_BG'], activebackground = COLOUR['FRAME_BG'], text = TEXT['FORMATS'][0],
             activeforeground = COLOUR['TEXT_LABEL'],)
-        self.elements['FORMAT_BOX_CUES'].configure(bg = COLOUR['BG_FRAME'], fg = COLOUR['TEXT_LABEL'], command=self.format_changed, width = 4, 
-            selectcolor = COLOUR['BG_FRAME'], activebackground = COLOUR['BG_FRAME'], text = TEXT['FORMATS'][1], 
+        self.elements['FORMAT_BOX_CUES'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'], command=self.format_changed, width = 4, 
+            selectcolor = COLOUR['FRAME_BG'], activebackground = COLOUR['FRAME_BG'], text = TEXT['FORMATS'][1], 
             activeforeground = COLOUR['TEXT_LABEL'],)
-        self.elements['FORMAT_BOX_JSON'].configure(bg = COLOUR['BG_FRAME'], fg = COLOUR['TEXT_LABEL'], command=self.format_changed, width = 4, 
-            selectcolor = COLOUR['BG_FRAME'], activebackground = COLOUR['BG_FRAME'], text = TEXT['FORMATS'][2], 
+        self.elements['FORMAT_BOX_JSON'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'], command=self.format_changed, width = 4, 
+            selectcolor = COLOUR['FRAME_BG'], activebackground = COLOUR['FRAME_BG'], text = TEXT['FORMATS'][2], 
             activeforeground = COLOUR['TEXT_LABEL'],)
 
     def draw_language(self, e=None, *, redraw = False):
@@ -512,7 +616,7 @@ class Subtitle_Widget(tk.Frame):
         else:
             if DEBUG: print('SUBTITLES LANGUAGE: redrawn')
             self.draw_language_elements(redraw = redraw)
-        self.elements['LANGUAGE'].configure(bg = COLOUR['BG_FRAME'],)
+        self.elements['LANGUAGE'].configure(bg = COLOUR['FRAME_BG'],)
 
     def draw_language_elements(self, e=None, *, redraw = False):
         if not redraw:
@@ -576,8 +680,8 @@ class Subtitle_Widget(tk.Frame):
                 bg = COLOUR['SELECT_BG'], activebackground = COLOUR['SELECT_BG_ACTIVE'], text = TEXT['TRANSLATION_OPTIONS'],)
             self.elements['CHOICE_T'].menu.configure(activeforeground = COLOUR['CHOICE_FG_ACTIVE'],fg = COLOUR['CHOICE_FG'],
                 activebackground = COLOUR['CHOICE_BG_ACTIVE'], bg = COLOUR['CHOICE_BG'],)
-            self.elements['LANGUAGE_LABEL'].configure(bg = COLOUR['BG_FRAME'], fg = COLOUR['TEXT_LABEL'], text = TEXT['LANGUAGE'],)
-            self.elements['LANGUAGE_SELECTED'].configure(bg = COLOUR['BG_FRAME'], fg = COLOUR['TEXT_LABEL'],)
+            self.elements['LANGUAGE_LABEL'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'], text = TEXT['LANGUAGE'],)
+            self.elements['LANGUAGE_SELECTED'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'],)
             self.elements['LANGUAGE_CLEAR'].configure(fg = COLOUR['TEXT_BUTTON'], bg = COLOUR['BUTTON_NORMAL'], text = TEXT['HELPERS'][0],
                 activeforeground = COLOUR['ACTIVE'], activebackground = COLOUR['BUTTON_CLICKED'], highlightcolor = COLOUR['ACTIVE'],)
             self.elements['LANGUAGE_ALL'].configure(fg = COLOUR['TEXT_BUTTON'], bg = COLOUR['BUTTON_NORMAL'], text = TEXT['HELPERS'][1],
@@ -604,9 +708,9 @@ class Subtitle_Widget(tk.Frame):
             self.selection.set(TEXT['DEFAULT_PARTIAL']+' de, en')
             self.elements['LANGUAGE_BUTTON'].configure(activebackground = COLOUR['BUTTON_CLICKED'], activeforeground = COLOUR['ACTIVE'],
                 highlightcolor = COLOUR['ACTIVE'], fg = COLOUR['TEXT_BUTTON'], bg = COLOUR['BUTTON_NORMAL'], text = TEXT['OPTIONS'],)
-            self.elements['LANGUAGE_SELECTED'].configure(bg = COLOUR['BG_FRAME'], fg = COLOUR['TEXT_LABEL'],)
-            self.elements['LANGUAGE_LABEL'].configure(bg = COLOUR['BG_FRAME'], fg = COLOUR['TEXT_LABEL'], text = TEXT['DEFAULTS'],)
-            self.elements['LANGUAGE_PADDING'].configure(bg = COLOUR['BG_FRAME'], fg = COLOUR['TEXT_LABEL'],)
+            self.elements['LANGUAGE_SELECTED'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'],)
+            self.elements['LANGUAGE_LABEL'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'], text = TEXT['DEFAULTS'],)
+            self.elements['LANGUAGE_PADDING'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'],)
         
     def draw_other(self, *, redraw = False):
         if not redraw:
@@ -624,11 +728,11 @@ class Subtitle_Widget(tk.Frame):
             self.elements['BELOW'] = tk.Frame(self)
             self.elements['BELOW'].pack(side = tk.TOP, fill = tk.BOTH, expand = True)
             if DEBUG: print('SUBTITLES OTHER: drawn')
-        self.elements['BOTTOM'].configure(bg = COLOUR['BG_FRAME'])
-        self.elements['BELOW'].configure(bg = COLOUR['BG_FRAME'])
+        self.elements['BOTTOM'].configure(bg = COLOUR['FRAME_BG'])
+        self.elements['BELOW'].configure(bg = COLOUR['FRAME_BG'])
         self.elements['RUN'].configure(activebackground = COLOUR['BUTTON_CLICKED'], activeforeground = COLOUR['ACTIVE'],
                 bg = COLOUR['BUTTON_NORMAL'], fg = COLOUR['TEXT_BUTTON'], highlightcolor = COLOUR['ACTIVE'], text = TEXT['EXTRACT'],)
-        self.elements['STATUS'].configure(bg = COLOUR['BG_FRAME'], fg = COLOUR['TEXT_LABEL'], )
+        self.elements['STATUS'].configure(bg = COLOUR['FRAME_BG'], fg = COLOUR['TEXT_LABEL'], )
 
     ## The Functionality ################################################################################
 
@@ -891,18 +995,25 @@ def save_as_json(cues, video_id, path, language, is_translation=False):
 
 def lerp(a, b, t):
     return a*(1-t) + b*(t)
+def colour_to_tuple(colour):
+    return tuple([int(c, 16) for c in [colour[1:3], colour[3:5], colour[5:7]]])
+def tuple_to_colour(tupple):
+    return ''.join(('#', *[hex(c)[2:].zfill(2) for c in tupple]))
+def mix_colours(colour1, colour2, by_how_much):
+    return tuple_to_colour(tuple([int(lerp(a, b, by_how_much)) for a, b in zip(colour_to_tuple(colour1), colour_to_tuple(colour2))]))
 
 COLOUR = {}
 COLOURS = {'DARK': {}, 'LIGHT': {}}
 ## DARK
-COLOURS['DARK']['BG_FRAME'] = '#111111'
-COLOURS['DARK']['BG_FRAME_CONTRAST'] = '#333333'
+COLOURS['DARK']['FRAME_BG'] = '#111111'
+COLOURS['DARK']['FRAME_BG_CONTRAST'] = '#333333'
 COLOURS['DARK']['TEXT'] = '#ffffff'
 COLOURS['DARK']['TEXT_LABEL'] = '#ffffff'
 COLOURS['DARK']['BUTTON_NORMAL'] = '#b25c11'
 COLOURS['DARK']['BUTTON_CLICKED'] = '#ef760b'
 COLOURS['DARK']['ACTIVE'] = '#444444'
-COLOURS['DARK']['BACKGROUND_ENTRY'] = '#222222'
+COLOURS['DARK']['ENTRY_BG'] = '#222222'
+COLOURS['DARK']['TAB_OFF'] = mix_colours('#111111', '#ef760b', .3)
 COLOURS['DARK']['TEXT_BUTTON'] = '#ffffff'
 COLOURS['DARK']['CHOICE_BG_ACTIVE'] = '#222222'
 COLOURS['DARK']['CHOICE_FG_ACTIVE'] = '#ef760b'
@@ -911,14 +1022,15 @@ COLOURS['DARK']['CHOICE_FG'] = '#ffffff'
 COLOURS['DARK']['SELECT_BG'] = '#222222'
 COLOURS['DARK']['SELECT_BG_ACTIVE'] = '#333333'
 ## LIGHT
-COLOURS['LIGHT']['BG_FRAME'] = '#eeeeee'
-COLOURS['LIGHT']['BG_FRAME_CONTRAST'] = '#7f7f7f'
+COLOURS['LIGHT']['FRAME_BG'] = '#eeeeee'
+COLOURS['LIGHT']['FRAME_BG_CONTRAST'] = '#7f7f7f'
 COLOURS['LIGHT']['TEXT'] = '#000000'
 COLOURS['LIGHT']['TEXT_LABEL'] = '#000000'
 COLOURS['LIGHT']['BUTTON_NORMAL'] = '#006AB3'
 COLOURS['LIGHT']['BUTTON_CLICKED'] = '#0097f9'
 COLOURS['LIGHT']['ACTIVE'] = '#444444'
-COLOURS['LIGHT']['BACKGROUND_ENTRY'] = '#cccccc'
+COLOURS['LIGHT']['ENTRY_BG'] = '#cccccc'
+COLOURS['LIGHT']['TAB_OFF'] = mix_colours('#eeeeee', '#0097f9', .3)
 COLOURS['LIGHT']['TEXT_BUTTON'] = '#ffffff'
 COLOURS['LIGHT']['CHOICE_BG_ACTIVE'] = '#444444'
 COLOURS['LIGHT']['CHOICE_FG_ACTIVE'] = '#0097f9'
@@ -951,6 +1063,14 @@ TEXTS['EN'].update({
     'EXTRACT': 'Extract',
     'CHOSEN_PARTIAL': 'Chosen: ',
     'DEFAULT_PARTIAL': 'Default: ',
+    'TOOL_SPELL': 'Choose a language for spell-\nchecking, then press start:',
+    'TOOL_SPELL_B': 'Start spellchecking',
+    'TOOL_SAVE': 'Save the text:',
+    'TOOL_SAVE_B': 'Save...',
+    'TOOL_SPEECH': 'Text-to-speech the selected text:',
+    'TOOL_SPEECH_B': 'Read it!',
+    'SPEECH_UNAVAILABLE': 'Couldn\'t find TTS capabilities...',
+    'TOOL_DEFAULT_DICT': 'Choose a language option:',
 })
 TEXTS['DE'].update({
     'TITLE': 'Untertitel Extrahierer',
@@ -970,6 +1090,14 @@ TEXTS['DE'].update({
     'EXTRACT': 'Extrahiere',
     'CHOSEN_PARTIAL': 'Auswahl: ',
     'DEFAULT_PARTIAL': 'Standard: ',
+    'TOOL_SPELL': 'Wähle eine Sprache um die \nRechtschreibung zu prüfen:',
+    'TOOL_SPELL_B': 'Rechtschreibprüfung',
+    'TOOL_SAVE': 'Text speichern:',
+    'TOOL_SAVE_B': 'Speichern...',
+    'TOOL_SPEECH': 'Markierten Text vorlesen lassen:',
+    'TOOL_SPEECH_B': 'Vorlesen, bitte!',
+    'SPEECH_UNAVAILABLE': 'Konnte keine Stimme finden...',
+    'TOOL_DEFAULT_DICT': 'Sprache wählen:',
 })
 TEXT.update(TEXTS['EN'])
 
