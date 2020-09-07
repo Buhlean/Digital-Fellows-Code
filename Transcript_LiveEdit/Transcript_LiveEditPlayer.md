@@ -19,7 +19,7 @@ translation: Русский  translations/Russian.md
 
 Rendered version at:
 
-https://liascript.github.io/course/?https://raw.githubusercontent.com/Buhlean/Digital-Fellows-Code/master/Transcript_LiveEdit/Transcript_LiveEdit.md
+https://liascript.github.io/course/?https://raw.githubusercontent.com/Buhlean/Digital-Fellows-Code/master/Transcript_LiveEdit/Transcript_LiveEditPlayer.md
 
 ## LiveEdit any transcript in here!
 <div id="player"></div>
