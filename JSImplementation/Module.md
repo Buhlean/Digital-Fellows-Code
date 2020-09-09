@@ -5,7 +5,7 @@ author: Alexander Buhl
 script: Module.js
 script: ElmMain.js
 
-@Player_init: <script>var placeholder=0; </script><div id="player"></div><script>create_and_change_player(@0)</script>
+@Player_init: <script>var placeholder=0; alert(typeof(@0));</script><div id="player"></div><script>create_and_change_player(@0)</script>
 @Player_pause: <script>pausePlayer()</script>
 @Player_play: <script>playPlayer()</script>
 @Player_stop: <script>stopPlayer()</script>
