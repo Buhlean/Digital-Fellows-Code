@@ -9,3 +9,7 @@ script: Module.js
 @Player_init: create_and_change_player(@0)
 
 -->
+
+### Obligatory slide
+
+Obligatory content
