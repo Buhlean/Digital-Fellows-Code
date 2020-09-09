@@ -12,5 +12,5 @@ import: Module.md
 
 <script>var placeholder=0;</script>
 
-@Player_init(`6Af6b_wyiwI`)
+@Player_init("6Af6b_wyiwI")
 
