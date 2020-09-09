@@ -6,7 +6,7 @@ script: Module.js
 
 @highlight: <b style="color: red">@0</b>
 
-@Player_init: create_and_change_player(@0)
+@Player_init: <script>create_and_change_player(@0)</script>
 
 -->
 
